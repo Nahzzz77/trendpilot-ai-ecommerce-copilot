@@ -15,6 +15,32 @@ TrendPilot 是一个用于 AI 产品经理面试展示的本地 MVP。当前 Pha
 - 对比上一等长周期，以及最新一天、前一天和此前 7 日均值。
 - 内置固定随机种子生成的 90 天、10 商品、900 行 UTF-8 BOM 示例数据。
 
+## 产品截图
+
+### 首页数据上传
+
+![TrendPilot 首页数据上传](docs/screenshots/phase2-home-upload.png)
+
+### 经营总览 Dashboard
+
+![TrendPilot 经营总览 Dashboard](docs/screenshots/phase2-dashboard-overview.png)
+
+### 核心 KPI 指标
+
+![TrendPilot 核心 KPI 指标](docs/screenshots/phase2-kpi-metrics.png)
+
+### 销售与订单趋势
+
+![TrendPilot 销售与订单趋势](docs/screenshots/phase2-sales-trends.png)
+
+### 商品销售额排名
+
+![TrendPilot 商品销售额排名](docs/screenshots/phase2-product-ranking.png)
+
+### 库存分析
+
+![TrendPilot 库存分析](docs/screenshots/phase2-inventory-analysis.png)
+
 ## 指标口径
 
 所有比率均先汇总分子与分母，再执行除法。
