@@ -2,96 +2,95 @@
 
 > 面向潮流服饰品牌的 AI 电商运营决策助手
 
-TrendPilot 是一个用于 AI 产品经理面试展示的本地 MVP。项目希望把电商经营数据转化为可解释的问题诊断和可执行的运营建议。当前仓库只完成阶段 1：建立可靠的数据上传与校验入口。
+TrendPilot 是一个用于 AI 产品经理面试展示的本地 MVP。当前 Phase 2 已实现经营数据上传、校验、确定性指标计算和可交互经营 Dashboard，帮助运营人员快速查看销售、转化、毛利与库存表现。
 
-## 项目背景
+本版本不包含异常检测、原因解释、LLM 或 AI 建议，所有展示数字均由 Pandas 按明确公式计算。
 
-中小型潮流服饰品牌通常拥有销售、流量和库存数据，但运营人员仍需依赖经验判断数据变化原因、商品风险和行动优先级。TrendPilot 的长期产品流程是：
+## 已实现功能
 
-```text
-经营数据分析 → 异常发现 → 原因解释 → 行动建议 → 效果验证
-```
+- 加载内置示例 CSV，或上传用户自己的 CSV。
+- 校验必填字段、日期、标识字段、非负数值和 0–5 分评分。
+- 默认分析最近 30 天，支持日期、类目和商品联动筛选。
+- 展示核心 KPI、经营趋势、流量转化漏斗、商品与类目结构、毛利及库存明细。
+- 对比上一等长周期，以及最新一天、前一天和此前 7 日均值。
+- 内置固定随机种子生成的 90 天、10 商品、900 行 UTF-8 BOM 示例数据。
 
-## 阶段 1 功能
+## 指标口径
 
-- 加载项目自带的模拟经营数据。
-- 上传用户自己的 CSV 文件。
-- 校验 17 个必填字段，并明确提示缺失字段。
-- 将合法数据写入 Streamlit Session State。
-- 展示数据行数、商品数、日期范围和前 20 行预览。
+所有比率均先汇总分子与分母，再执行除法。
 
-阶段 1 **不包含**指标分析、异常检测、大模型调用、单品诊断或运营方案生成。
+| 指标 | 公式 |
+|---|---|
+| 点击率 | `Σproduct_clicks / Σimpressions` |
+| 加购率 | `Σadd_to_cart / Σproduct_clicks` |
+| 支付转化率 | `Σorders / Σvisitors` |
+| 退款率 | `Σrefund_units / Σunits_sold` |
+| 客单价 | `Σsales_amount / Σorders` |
+| ROAS | `Σsales_amount / Σad_spend` |
+| 毛利额 | `Σsales_amount - Σ(cost × units_sold)` |
+| 毛利率 | `毛利额 / Σsales_amount` |
+| 日均销量 | `Σunits_sold / 周期自然日数` |
+| 当前库存 | 每个商品在截止日前最后一条库存之和 |
+| 库存可售天数 | `当前库存 / 周期日均销量` |
 
-## 项目结构
+普通比率分母为零时返回 `0.0`；日均销量为零时库存可售天数为空。比率类周期变化使用百分点，其余指标使用相对变化率。
 
-```text
-.
-├── app.py
-├── src/
-│   ├── __init__.py
-│   ├── data_loader.py
-│   └── data_validator.py
-├── data/
-│   └── sample_sales_data.csv
-├── tests/
-│   ├── test_data_loader.py
-│   └── test_data_validator.py
-├── docs/
-├── assets/
-├── AGENTS.md
-├── requirements.txt
-└── README.md
-```
+## 快速开始
 
-## 快速启动
-
-需要 Python 3.11 或更高版本。
+需要 Python 3.11+。
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
-打开终端显示的本地地址后，可点击“加载示例数据”，也可以上传自己的 CSV。
+打开首页后点击“加载示例数据”，再进入“经营总览”。
 
-## CSV 必填字段
-
-```text
-date, product_id, product_name, category, price, cost, impressions,
-visitors, product_clicks, add_to_cart, orders, units_sold, sales_amount,
-ad_spend, refund_units, inventory, rating
-```
-
-字段名称区分拼写，但会自动清除字段名前后的空格。上传文件建议使用 UTF-8 编码。额外字段不会导致校验失败。
-
-## 示例数据
-
-`data/sample_sales_data.csv` 是固定生成的模拟数据，包含：
-
-- 2026-04-01 至 2026-06-29，共 90 天；
-- 10 个潮流服饰商品；
-- 每个商品每天一行，共 900 行；
-- 销售、流量、广告、退款、库存和评分字段。
-
-这些数据仅用于产品功能演示，不代表真实商家、真实用户或商业效果。
-
-## 测试
+## 运行测试
 
 ```powershell
 python -m pytest
 ```
 
-基础测试覆盖 CSV 读取、空文件处理、字段校验、数据摘要和示例数据规模。
+## 重新生成示例数据
 
-## 当前限制
+```powershell
+python scripts/generate_sample_data.py
+```
 
-- 仅支持 CSV 文件和单次浏览器会话，不使用数据库。
-- 只校验必填字段是否存在，尚未校验每列的数据类型和业务取值范围。
-- 未接入电商平台、用户系统、支付系统或生产环境。
-- 未接入任何大模型，也没有创建或保存真实 API Key。
+脚本使用固定随机种子，并将 CSV 写为 UTF-8 with BOM。
 
-## 后续阶段
+## 项目结构
 
-后续将在每个阶段单独验收后，依次增加指标看板、可解释异常检测、AI 经营诊断、单品诊断、运营方案和完整评估文档。
+```text
+app.py                         # 数据加载与校验首页
+pages/1_经营总览.py            # 经营 Dashboard
+src/data_loader.py             # CSV 读取与摘要
+src/data_validator.py          # 必填字段校验
+src/data_processor.py          # 分析数据准备与筛选
+src/metrics.py                 # 确定性经营指标
+src/charts.py                  # Plotly 图表构建
+data/sample_sales_data.csv     # 示例经营数据
+scripts/generate_sample_data.py
+tests/                         # pytest 与 Streamlit AppTest
+docs/screenshots/              # 后续 README 截图目录
+```
+
+## 数据字段
+
+CSV 必须包含：
+
+```text
+date, product_id, product_name, category, price, cost,
+impressions, visitors, product_clicks, add_to_cart, orders,
+units_sold, sales_amount, ad_spend, refund_units, inventory, rating
+```
+
+## 当前边界
+
+- Session State 数据不会跨浏览器会话持久化。
+- 当前库存取截止日前每个商品的最新记录，依赖源数据库存字段准确。
+- Dashboard 只做描述性计算，不判断指标好坏，也不生成运营结论。
+- `docs/screenshots/` 仅为后续展示素材预留，本阶段不包含正式截图。

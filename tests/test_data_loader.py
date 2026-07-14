@@ -54,3 +54,19 @@ def test_sample_data_covers_ninety_days_and_ten_products() -> None:
     assert dataframe["date"].nunique() >= 90
     assert dataframe["product_id"].nunique() == 10
     assert len(dataframe) >= 900
+
+
+def test_sample_data_has_readable_labels_and_useful_latest_inventory() -> None:
+    dataframe = load_sample_data(Path("data/sample_sales_data.csv"))
+    latest = dataframe.loc[dataframe.groupby("product_id")["date"].idxmax()]
+
+    labels = dataframe["product_name"].astype(str).str.cat(
+        dataframe["category"].astype(str)
+    )
+    assert not labels.str.contains("?", regex=False).any()
+    assert dataframe["product_name"].nunique() == 10
+    assert dataframe["category"].nunique() == 10
+    assert not dataframe[list(REQUIRED_COLUMNS)].isna().any().any()
+    assert latest["inventory"].sum() > 0
+    assert (latest["inventory"] > 0).all()
+    assert latest["inventory"].nunique() >= 3

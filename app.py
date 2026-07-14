@@ -1,4 +1,4 @@
-"""TrendPilot 阶段 1：经营数据加载与校验首页。"""
+"""TrendPilot data entry and validation homepage."""
 
 import pandas as pd
 import streamlit as st
@@ -12,8 +12,7 @@ SOURCE_SESSION_KEY = "sales_data_source"
 
 
 def store_valid_data(dataframe: pd.DataFrame, source_name: str) -> bool:
-    """校验数据，并将合法数据保存到当前 Streamlit 会话。"""
-
+    """Validate and store an accepted dataset in the current Streamlit session."""
     validation = validate_required_columns(dataframe)
     if not validation.is_valid:
         st.error(validation.error_message)
@@ -25,8 +24,7 @@ def store_valid_data(dataframe: pd.DataFrame, source_name: str) -> bool:
 
 
 def render_dataset(dataframe: pd.DataFrame) -> None:
-    """展示当前会话数据的基础摘要和预览。"""
-
+    """Render a compact summary and preview for the active dataset."""
     summary = summarize_dataset(dataframe)
     row_count, product_count, start_date, end_date = st.columns(4)
     row_count.metric("数据行数", f"{summary['row_count']:,}")
@@ -39,17 +37,17 @@ def render_dataset(dataframe: pd.DataFrame) -> None:
     st.caption("当前展示前 20 行；完整数据已保存在本次浏览器会话中。")
 
 
-st.set_page_config(page_title="TrendPilot", page_icon="🧭", layout="wide")
+st.set_page_config(page_title="TrendPilot", page_icon="📈", layout="wide")
 
 st.title("TrendPilot")
 st.subheader("面向潮流服饰品牌的 AI 电商运营决策助手")
 st.write(
-    "上传经营数据后，TrendPilot 将在后续阶段完成指标分析、异常发现与行动建议。"
-    "当前阶段先建立可靠的数据入口。"
+    "加载经营数据后，可进入经营总览查看销售、转化、毛利和库存等确定性指标。"
+    "当前版本不包含异常检测、原因解释或自动建议。"
 )
 
-st.markdown("### 核心流程")
-st.markdown("**加载数据 → 校验字段 → 保存会话 → 查看数据摘要**")
+st.markdown("### 使用流程")
+st.markdown("**加载数据 → 校验字段 → 保存会话 → 查看经营总览**")
 
 sample_column, upload_column = st.columns(2)
 
@@ -67,9 +65,7 @@ with sample_column:
 with upload_column:
     st.markdown("#### 上传自己的 CSV")
     uploaded_file = st.file_uploader("选择 CSV 文件", type=["csv"])
-    if uploaded_file is not None and st.button(
-        "校验并使用上传数据", width="stretch"
-    ):
+    if uploaded_file is not None and st.button("校验并使用上传数据", width="stretch"):
         try:
             uploaded_data = load_csv(uploaded_file)
             if store_valid_data(uploaded_data, uploaded_file.name):
@@ -85,5 +81,6 @@ if DATA_SESSION_KEY in st.session_state:
     source = st.session_state.get(SOURCE_SESSION_KEY, "未知来源")
     st.caption(f"当前数据来源：{source}")
     render_dataset(st.session_state[DATA_SESSION_KEY])
+    st.page_link("pages/1_经营总览.py", label="进入经营总览", icon="📊")
 else:
     st.info("请加载示例数据，或上传包含全部必填字段的 CSV 文件。")
