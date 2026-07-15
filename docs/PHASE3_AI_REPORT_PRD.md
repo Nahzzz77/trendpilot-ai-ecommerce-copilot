@@ -276,6 +276,8 @@ AI输入：
 - cause_id
 - 原因描述
 
+只提供当前 Finding 的 `cause_candidate_ids` 对应条目。
+
 
 ## Action Catalog
 
@@ -285,47 +287,53 @@ AI输入：
 - 行动描述
 - 观察指标
 
+只提供当前 Finding 的 `action_candidate_ids` 对应条目。
+
 ---
 
 # 7. AI输出结构
 
 
-AI必须返回结构化JSON。
+AI必须返回符合固定 Schema 的结构化 JSON。
 
 
-结构：
+冻结结构：
 
-```
-
+```text
 AIReport
-
 ├── executive_summary
-
-├── priority_findings[]
-│
+├── finding_explanations[]
 │   ├── finding_id
 │   ├── explanation
-│
+│   └── why_priority
 ├── cross_issue_insights[]
-│
+│   ├── finding_ids[]
+│   └── insight
 ├── cause_hypotheses[]
-│
 │   ├── finding_id
 │   ├── cause_id
 │   ├── hypothesis
-│   ├── validation_method
-│
+│   └── validation_method
 ├── recommended_actions[]
-│
 │   ├── finding_id
 │   ├── action_id
-│   ├── priority
-│   ├── reason
-│   ├── observation_metric
-│
-└── limitations
-
+│   ├── action_priority
+│   └── reason
+└── limitations[]
 ```
+
+冻结规则：
+
+- `executive_summary`：总结当前筛选范围内的经营状态。
+- `finding_explanations`：只能解释当前已有 Finding，不能创建新的问题，也不能修改规则 Priority。
+- `cross_issue_insights`：每条关联分析必须通过 `finding_ids` 引用两个或以上当前已有 Finding。
+- `cause_hypotheses`：`cause_id` 必须来自对应 Finding 的 `cause_candidate_ids`。
+- `recommended_actions`：`action_id` 必须来自对应 Finding 的 `action_candidate_ids`；`action_priority` 只表示行动执行优先级，不改变 Finding Priority。
+- `limitations`：列出数据不足、不能确认的关系或报告适用边界。
+- AI 不返回业务数字，不复制或重新计算 KPI。
+- 页面根据 `finding_id` 从确定性系统取得并渲染 Evidence、指标值和规则 Priority。
+
+字段类型、必填性、空数组行为和页面渲染规则以 `docs/AI_REPORT_SCHEMA.md` 为唯一依据。
 
 ---
 
@@ -364,6 +372,28 @@ AIReport
 - 有验证指标
 
 
+AI 不自由生成 `observation_metric`。
+
+原因：
+
+Action Catalog 已经为每个行动定义对应观察指标。允许 AI 自由生成可能导致观察指标与行动目录不一致。
+
+职责划分：
+
+AI负责：
+
+- 选择 `action_id`
+- 通过 `action_priority` 排序行动
+- 解释推荐原因
+
+
+系统负责：
+
+- 校验 `action_id` 是否属于对应 Finding 的候选行动
+- 根据 `action_id` 从 Action Catalog 渲染观察指标
+- 根据 Action Catalog 渲染负责人和建议周期
+
+
 示例：
 
 错误：
@@ -380,41 +410,56 @@ AIReport
 # 10. Report Validator
 
 
-第一版只校验：
+第一版 Validator 必须校验：
 
-## JSON结构
+## 10.1 JSON结构
 
-检查：
-
-- 必填字段
-- 数据类型
-
-
-## ID引用
-
-检查：
-
-finding_id:
-
-必须存在于当前诊断结果。
+- 顶层及子项必填字段完整
+- 字段数据类型正确
+- 数组和字符串符合 `docs/AI_REPORT_SCHEMA.md` 定义
+- 不展示任何未通过结构校验的模型输出
 
 
-cause_id:
+## 10.2 Finding引用
 
-必须存在于Cause Catalog。
+所有 `finding_id` 必须存在于当前诊断结果。
 
-
-action_id:
-
-必须存在于Action Catalog。
+AI不能创建新的 Finding，也不能引用当前筛选范围之外的 Finding。
 
 
-不实现：
+## 10.3 Cause引用
 
-- 自然语言审核
-- 因果检测
+不能只校验 `cause_id` 在全局 Cause Catalog 中存在。
+
+必须满足：
+
+```text
+cause_id ∈ 当前 finding 的 cause_candidate_ids
+```
+
+
+## 10.4 Action引用
+
+不能只校验 `action_id` 在全局 Action Catalog 中存在。
+
+必须满足：
+
+```text
+action_id ∈ 当前 finding 的 action_candidate_ids
+```
+
+
+## 10.5 跨问题引用
+
+`cross_issue_insights` 中的所有 `finding_ids` 必须存在于当前诊断结果，且每条关联分析至少引用两个不同 Finding。
+
+
+第一版不做：
+
+- 自然语言事实审核
+- 因果判断审核
 - Prompt Injection检测
-- 复杂事实检查
+- 复杂内容安全审核
 
 ---
 
