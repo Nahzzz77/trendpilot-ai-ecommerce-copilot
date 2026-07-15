@@ -285,3 +285,9 @@ latest_view = latest_view.rename(
 )
 st.dataframe(latest_view, hide_index=True, width="stretch")
 st.caption("对比仅展示确定性计算结果；比率变化为百分点，其他指标为相对变化率。")
+
+st.divider()
+st.markdown("### 下一步：定位经营问题")
+st.write("基于当前数据进入确定性诊断，查看指标证据、系统判断和行动建议。")
+if st.button("进入 AI 经营诊断", type="primary"):
+    st.switch_page("pages/2_AI经营诊断.py")

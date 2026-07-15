@@ -41,6 +41,7 @@ def test_dashboard_renders_core_kpis_for_sample_data():
         assert label in metric_labels
     captions = [caption.value for caption in app.caption]
     assert any("2026-05-31 至 2026-06-29" in caption for caption in captions)
+    assert any(button.label == "进入 AI 经营诊断" for button in app.button)
 
 
 def test_category_filter_recalculates_dashboard_kpis():
