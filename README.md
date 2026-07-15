@@ -2,18 +2,72 @@
 
 > 面向潮流服饰品牌的 AI 电商运营决策助手
 
-TrendPilot 是一个用于 AI 产品经理面试展示的本地 MVP。当前 Phase 2 已实现经营数据上传、校验、确定性指标计算和可交互经营 Dashboard，帮助运营人员快速查看销售、转化、毛利与库存表现。
+TrendPilot 是一个面向潮流服饰品牌电商运营人员的 AI 经营决策助手，也是一个用于 AI 产品经理面试展示的本地 MVP。
 
-本版本不包含异常检测、原因解释、LLM 或 AI 建议，所有展示数字均由 Pandas 按明确公式计算。
+当前版本已经形成一条可演示、可验证的经营分析流程：
+
+```text
+数据上传
+→ Dashboard 指标计算
+→ 确定性规则发现问题
+→ 展示数据证据、系统判断、候选原因和候选行动
+```
+
+所有经营数字和问题判断都有明确来源。当前版本尚未接入真实大模型、AI Provider、Prompt 或 AI Report；下一阶段计划开发 AI 经营分析报告。
+
+## 产品架构
+
+TrendPilot 使用“确定性分析 + AI 增强”的产品思路，当前已完成确定性分析部分：
+
+- **Pandas** 负责计算经营指标和周期对比，是业务数字的唯一来源。
+- **Rule Engine** 根据集中配置的阈值发现经营问题，并生成带证据和优先级的诊断结果。
+- **Cause Catalog** 和 **Action Catalog** 提供受控的候选原因与候选行动，避免系统随意生成结论。
+- **当前版本尚未接入真实大模型**，诊断页面展示的是确定性系统结果。
+- **下一阶段的 LLM** 将在结构化诊断结果之上负责经营总结、问题解释、原因假设和行动排序，不重新计算指标，也不直接读取原始 CSV。
 
 ## 已实现功能
 
-- 加载内置示例 CSV，或上传用户自己的 CSV。
-- 校验必填字段、日期、标识字段、非负数值和 0–5 分评分。
-- 默认分析最近 30 天，支持日期、类目和商品联动筛选。
-- 展示核心 KPI、经营趋势、流量转化漏斗、商品与类目结构、毛利及库存明细。
-- 对比上一等长周期，以及最新一天、前一天和此前 7 日均值。
-- 内置固定随机种子生成的 90 天、10 商品、900 行 UTF-8 BOM 示例数据。
+### 数据入口
+
+- 加载项目内置示例 CSV，或上传用户自己的 CSV。
+- 校验 17 个必填字段。
+- 校验日期、商品标识、非负数值和 0–5 分评分。
+- 将合法数据保存在当前 Streamlit Session State，并展示数据摘要和预览。
+- 内置固定随机种子生成的 90 天、10 个商品、900 行示例数据。
+
+### 经营 Dashboard
+
+- 默认分析最近 30 天。
+- 支持日期、类目和商品联动筛选。
+- 展示 KPI 和上一等长周期对比。
+- 展示销售、流量、转化、广告、退款、毛利和库存分析。
+- 展示每日趋势、流量转化漏斗、商品排名、类目占比和库存明细。
+- 展示最新一天、前一天和此前 7 日均值对比。
+
+### 确定性经营诊断
+
+- 使用 `DiagnosisContext` 复用 Dashboard 的指标结果，不修改原始数据。
+- 通过确定性规则识别销售、访客、转化率、ROAS、广告投入、毛利率、退款率、库存和重点商品问题。
+- 每个问题包含 `DiagnosticFinding`、`Evidence`、影响范围和优先级。
+- 根据影响程度、变化幅度和数据完整度生成高、中、低优先级。
+- 使用 Cause Catalog 提供受控的候选原因。
+- 使用 Action Catalog 提供负责人、建议周期和观察指标明确的候选行动。
+- 诊断卡片明确区分“数据证据”“系统判断”“可能原因”和“行动建议”。
+- 支持日期、类目和商品筛选，以及无数据、筛选为空和无诊断结果状态。
+
+### 测试
+
+- 当前共有 **67 个自动测试**。
+- 覆盖数据加载、字段校验、指标计算、图表、Dashboard、DiagnosisContext、规则边界、优先级、目录引用和诊断页面。
+
+## 当前项目阶段
+
+| 阶段 | 状态 | 主要内容 |
+|---|---|---|
+| Phase 1：数据入口 | 已完成 | CSV 上传、示例数据、17 个字段校验和 Session State |
+| Phase 2：经营 Dashboard | 已完成 | 确定性指标、周期对比、图表和库存分析 |
+| Phase 3：确定性经营诊断 | 已完成 | DiagnosisContext、规则引擎、优先级、Cause/Action Catalog 和诊断页面 |
+| Phase 3：AI Report | 尚未开发 | 下一阶段开发 AI Provider 和 AI 经营分析报告 |
 
 ## 产品截图
 
@@ -72,7 +126,7 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-打开首页后点击“加载示例数据”，再进入“经营总览”。
+打开首页后点击“加载示例数据”，依次进入“经营总览”和“AI 经营诊断”。
 
 ## 运行测试
 
@@ -91,22 +145,33 @@ python scripts/generate_sample_data.py
 ## 项目结构
 
 ```text
-app.py                         # 数据加载与校验首页
-pages/1_经营总览.py            # 经营 Dashboard
-src/data_loader.py             # CSV 读取与摘要
-src/data_validator.py          # 必填字段校验
-src/data_processor.py          # 分析数据准备与筛选
-src/metrics.py                 # 确定性经营指标
-src/charts.py                  # Plotly 图表构建
-data/sample_sales_data.csv     # 示例经营数据
+app.py                         # 数据加载、校验和预览首页
+pages/
+  1_经营总览.py               # 经营 Dashboard
+  2_AI经营诊断.py             # 确定性经营诊断页面
+src/
+  data_loader.py              # CSV 读取与摘要
+  data_validator.py           # 17 个必填字段校验
+  data_processor.py           # 分析数据准备与筛选
+  metrics.py                  # 确定性经营指标
+  charts.py                   # Plotly 图表构建
+  diagnosis_models.py         # Context、Finding、Evidence 数据结构
+  diagnosis_context.py        # 诊断上下文构建
+  diagnosis_rules.py          # 确定性诊断规则
+  diagnosis_scoring.py        # 问题优先级评分
+  diagnosis_engine.py         # 规则执行与结果排序
+  diagnosis_catalog.py        # Cause Catalog 与 Action Catalog
+data/sample_sales_data.csv    # 示例经营数据
 scripts/generate_sample_data.py
-tests/                         # pytest 与 Streamlit AppTest
-docs/screenshots/              # 后续 README 截图目录
+tests/                        # pytest 与 Streamlit AppTest
+docs/PROJECT_CONTEXT.md       # 项目状态恢复文档
+docs/screenshots/             # README 产品截图
+requirements.txt
 ```
 
 ## 数据字段
 
-CSV 必须包含：
+CSV 必须包含以下 17 个字段：
 
 ```text
 date, product_id, product_name, category, price, cost,
@@ -116,7 +181,14 @@ units_sold, sales_amount, ad_spend, refund_units, inventory, rating
 
 ## 当前边界
 
-- Session State 数据不会跨浏览器会话持久化。
-- 当前库存取截止日前每个商品的最新记录，依赖源数据库存字段准确。
-- Dashboard 只做描述性计算，不判断指标好坏，也不生成运营结论。
-- `docs/screenshots/` 仅为后续展示素材预留，本阶段不包含正式截图。
+- 当前版本没有真实 LLM、AI Provider、Prompt 或 AI Report。
+- AI 不直接读取原始 CSV；未来只接收结构化诊断结果。
+- 指标计算和问题判断来自 Pandas 与确定性规则系统。
+- 当前展示的原因和行动来自受控候选目录，不是 AI 生成的最终结论。
+- Session State 只保存当前浏览器会话中的数据，不提供长期数据保存。
+- 当前库存依赖上传数据中每个商品在截止日前的最后一条库存记录。
+- 当前项目是用于产品验证和面试演示的本地 MVP，不是生产级企业软件。
+
+## 下一步
+
+下一阶段将开发 AI 经营分析报告：在不改变现有指标和规则结果的前提下，让 LLM 基于结构化诊断内容生成经营总结、问题解释、原因假设和行动排序。该能力当前尚未实现。
