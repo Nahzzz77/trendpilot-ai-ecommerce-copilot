@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from src.ai_provider import AIProvider
+from src.ai_provider_factory import create_ai_provider
 from src.ai_report_models import AIReport, AIReportGenerationResult
 from src.ai_report_service import generate_ai_report
 from src.data_processor import AnalysisDataError, prepare_analysis_data
@@ -15,7 +16,6 @@ from src.diagnosis_catalog import ACTION_CATALOG, CAUSE_CATALOG
 from src.diagnosis_context import DiagnosisContextError, build_diagnosis_context
 from src.diagnosis_engine import run_diagnosis
 from src.diagnosis_models import DiagnosisContext, DiagnosticFinding, Evidence
-from src.providers.openai_provider import create_openai_provider
 
 
 DATA_SESSION_KEY = "sales_data"
@@ -157,7 +157,7 @@ def get_ai_report_provider() -> AIProvider | None:
     """Resolve the configured provider without handling credentials in the page."""
     if AI_REPORT_PROVIDER_SESSION_KEY in st.session_state:
         return st.session_state[AI_REPORT_PROVIDER_SESSION_KEY]
-    return create_openai_provider()
+    return create_ai_provider()
 
 
 def render_ai_report(report: AIReport, findings: tuple[DiagnosticFinding, ...]) -> None:

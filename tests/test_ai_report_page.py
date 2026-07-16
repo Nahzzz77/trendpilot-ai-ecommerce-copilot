@@ -9,13 +9,14 @@ import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from src import ai_provider_factory as ai_provider_factory_module
 from src.ai_provider import AI_REPORT_SCHEMA
 from src.ai_report_payload import build_ai_report_payload
 from src.data_loader import load_sample_data
 from src.diagnosis_context import build_diagnosis_context
 from src.diagnosis_engine import run_diagnosis
 from src.fake_ai_provider import FakeAIProvider
-from src.providers import openai_provider as openai_provider_module
+from src.providers.deepseek_provider import DeepSeekProvider
 from src.providers.openai_provider import OpenAIProvider
 
 
@@ -127,6 +128,38 @@ def _mock_openai_provider() -> tuple[OpenAIProvider, MagicMock]:
     return provider, client
 
 
+def _mock_deepseek_provider(
+    *,
+    invalid_finding_reference: bool = False,
+) -> tuple[DeepSeekProvider, MagicMock]:
+    sample = load_sample_data()
+    context = build_diagnosis_context(
+        sample,
+        date(2026, 5, 31),
+        date(2026, 6, 29),
+        (),
+        (),
+        source_name="项目示例数据",
+    )
+    findings = tuple(run_diagnosis(context))
+    payload = build_ai_report_payload(context, findings)
+    raw_report = FakeAIProvider().generate_report(payload, AI_REPORT_SCHEMA)
+    if invalid_finding_reference:
+        report = json.loads(raw_report)
+        report["finding_explanations"][0]["finding_id"] = "finding-unknown"
+        raw_report = json.dumps(report, ensure_ascii=False)
+    client = MagicMock()
+    client.chat.completions.create.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=raw_report))]
+    )
+    provider = DeepSeekProvider(
+        api_key="test-key",
+        model="test-model",
+        client=client,
+    )
+    return provider, client
+
+
 def test_ai_report_area_has_scope_and_generate_button() -> None:
     app = _loaded_app()
 
@@ -139,6 +172,21 @@ def test_ai_report_area_has_scope_and_generate_button() -> None:
     assert any(
         item.label == "生成 AI 经营分析报告" for item in app.button
     )
+
+
+def test_page_resolves_default_provider_through_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factory = MagicMock(return_value=RecordingFakeProvider())
+    monkeypatch.setattr(ai_provider_factory_module, "create_ai_provider", factory)
+
+    app = _loaded_app()
+
+    assert not app.exception
+    assert factory.call_count == 1
+    page_source = AI_REPORT_PAGE.read_text(encoding="utf-8")
+    assert "create_ai_provider" in page_source
+    assert "create_openai_provider" not in page_source
 
 
 def test_fake_provider_success_renders_validated_ai_report() -> None:
@@ -180,12 +228,49 @@ def test_mock_openai_provider_success_renders_separated_ai_report_layers() -> No
         assert label in content
 
 
+def test_deepseek_factory_provider_generates_validated_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider, client = _mock_deepseek_provider()
+    factory = MagicMock(return_value=provider)
+    monkeypatch.setenv("AI_PROVIDER", "deepseek")
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.setattr(ai_provider_factory_module, "create_ai_provider", factory)
+
+    app = _click_generate(_loaded_app())
+
+    assert not app.exception
+    assert factory.call_count >= 1
+    assert client.chat.completions.create.call_count == 1
+    assert app.session_state[RESULT_SESSION_KEY].status == "success"
+    assert "经营摘要" in _markdown_content(app)
+
+
+def test_invalid_deepseek_report_is_rejected_without_rendering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider, client = _mock_deepseek_provider(invalid_finding_reference=True)
+    factory = MagicMock(return_value=provider)
+    monkeypatch.setenv("AI_PROVIDER", "deepseek")
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.setattr(ai_provider_factory_module, "create_ai_provider", factory)
+
+    app = _click_generate(_loaded_app())
+
+    assert not app.exception
+    assert client.chat.completions.create.call_count == 1
+    assert app.session_state[RESULT_SESSION_KEY].status == "validation_error"
+    assert any("AI 报告未通过校验" in item.value for item in app.error)
+    assert "经营摘要" not in _markdown_content(app)
+
+
 def test_default_provider_without_key_shows_configuration_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("AI_PROVIDER", "deepseek")
     monkeypatch.delenv("AI_API_KEY", raising=False)
     monkeypatch.setattr(
-        openai_provider_module,
+        ai_provider_factory_module,
         "_read_streamlit_secrets",
         lambda: {},
     )
@@ -197,6 +282,7 @@ def test_default_provider_without_key_shows_configuration_message(
         item.value == "当前未配置AI服务，仍可查看确定性诊断结果"
         for item in app.info
     )
+    assert RESULT_SESSION_KEY not in app.session_state
     assert "【数据证据】" in _markdown_content(app)
 
 

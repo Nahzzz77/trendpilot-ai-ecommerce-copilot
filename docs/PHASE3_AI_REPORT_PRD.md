@@ -140,14 +140,15 @@ AI主要完成：
 - 创建规则之外的问题
 - 修改规则Priority
 - 重新计算 Finding Priority
-- 编造输入不存在的数字
+- 生成 Payload 或 Catalog 之外的未经验证业务事实数字
+- 将AI生成的建议性阈值表达为当前业务事实
 - 将相关性描述为确定因果
 - 自动执行业务操作
 
 
 核心原则：
 
-> 数字由系统提供，解释由AI生成。
+> 业务事实数字由系统提供，解释由AI生成。AI可以提出明确标注的建议性阈值，但不能把建议写成已经验证的事实。
 
 优先级职责必须分离：
 
@@ -337,7 +338,7 @@ AIReport
 - `cause_hypotheses`：`cause_id` 必须来自对应 Finding 的 `cause_candidate_ids`。
 - `recommended_actions`：`action_id` 必须来自对应 Finding 的 `action_candidate_ids`；`action_sequence` 只表示行动建议的组织顺序，不改变 Finding Priority。
 - `limitations`：列出数据不足、不能确认的关系或报告适用边界。
-- AI 不返回业务数字，不复制或重新计算 KPI。
+- AI不得生成 Payload 或 Catalog 之外的未经验证业务事实数字；允许引用 Evidence 已有数字，也允许生成明确标注为建议的阈值，但不得复制为新的当前业务事实或重新计算 KPI。
 - 页面根据 `finding_id` 从确定性系统取得并渲染 Evidence、指标值和规则 Priority。
 
 字段类型、必填性、空数组行为和页面渲染规则以 `docs/AI_REPORT_SCHEMA.md` 为唯一依据。
@@ -400,6 +401,8 @@ AI负责：
 - 校验 `action_id` 是否属于对应 Finding 的候选行动
 - 根据 `action_id` 从 Action Catalog 渲染观察指标
 - 根据 Action Catalog 渲染负责人和建议周期
+
+如 AI 在行动理由中生成建议性阈值，必须明确使用“建议”“可作为观察条件”等措辞。该阈值用于帮助运营人员判断行动效果，不属于当前经营事实，也不能覆盖 Action Catalog 的观察指标和建议周期。
 
 
 示例：
@@ -469,15 +472,21 @@ action_id ∈ 当前 finding 的 action_candidate_ids
 - Prompt Injection检测
 - 复杂内容安全审核
 
+职责边界：
+
+- Validator 负责结构可靠性，包括必填字段、字段类型、全局 Action Sequence 和 Finding/Cause/Action 引用有效性。
+- Prompt 负责自然语言输出约束，包括假设语气、数字边界、行动具体性和建议性阈值表达。
+- 第一版 Validator 不审核自然语言中的事实、因果或建议阈值，因此通过 Validator 不等于自然语言质量已经自动验收。
+
 ---
 
 # 11. Provider设计
 
 系统先定义与具体模型服务解耦的 `AIProvider` 接口。页面、Prompt、Report Validator 和报告展示只依赖该接口，不直接依赖具体厂商 SDK。
 
-第一版只实现：
+第一版真实演示 Provider：
 
-- `OpenAI Provider`。
+- `DeepSeek Provider`，通过 OpenAI Python SDK 的 Chat Completions 兼容接口调用 DeepSeek 官方 API。
 
 设计目标：
 
@@ -488,7 +497,8 @@ action_id ∈ 当前 finding 的 action_candidate_ids
 要求：
 
 - `AIProvider` 接口独立封装。
-- `OpenAI Provider` 作为第一版接口实现。
+- `DeepSeek Provider` 作为第一版真实演示实现。
+- 保留 OpenAI Provider 兼容实现和 Fake Provider 测试实现，但不提供多 Provider UI。
 - API Key不进入代码
 - 支持无Key状态
 - 支持Mock测试
@@ -498,9 +508,10 @@ action_id ∈ 当前 finding 的 action_candidate_ids
 
 ```
 
+AI_PROVIDER=deepseek
 AI_API_KEY
-AI_MODEL
-AI_BASE_URL（可选，仅用于 OpenAI Provider 的服务端点配置）
+AI_MODEL=deepseek-v4-flash
+AI_BASE_URL=https://api.deepseek.com
 
 ```
 
@@ -611,6 +622,20 @@ AI不能只是：
 - AI不读取原始数据
 - AI失败不影响核心功能
 - 输出可校验
+
+## 已完成真实模型评估
+
+Phase 3 AI Report MVP 已使用 DeepSeek 官方 API 完成真实验证：
+
+- Provider：DeepSeek。
+- Model：`deepseek-v4-flash`。
+- Prompt优化后响应时间：20.930秒。
+- 返回 JSON 合法。
+- Validator通过，Service状态为 `success`。
+- Action Sequence在整份报告中从1开始连续且不重复。
+- 人工质量评分：4.5/5。
+
+当前结论：AI Report MVP 已达到面试展示标准。仍需在 Demo 文案中说明，原因假设不是确定因果，AI建议性阈值也不是当前业务事实。
 
 ---
 
