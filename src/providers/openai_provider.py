@@ -12,6 +12,7 @@ from src.ai_prompt import build_ai_report_prompt
 
 DEFAULT_OPENAI_MODEL = "gpt-5-mini"
 DEFAULT_TIMEOUT_SECONDS = 30.0
+_CONFIG_KEYS = ("AI_API_KEY", "AI_MODEL", "AI_BASE_URL")
 
 
 class OpenAIProviderResponseError(RuntimeError):
@@ -39,7 +40,7 @@ def _read_streamlit_secrets() -> Mapping[str, object]:
     try:
         import streamlit as st
 
-        return st.secrets
+        return {key: st.secrets.get(key) for key in _CONFIG_KEYS}
     except Exception:
         # Streamlit raises when no secrets file is configured. Missing optional
         # configuration is a supported state for the deterministic experience.
