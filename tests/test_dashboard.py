@@ -20,6 +20,77 @@ def test_homepage_loads_sample_data_and_keeps_phase_one_summary():
     assert labels == ["数据行数", "商品数", "开始日期", "结束日期"]
 
 
+def test_homepage_preview_uses_chinese_labels_without_mutating_source_data():
+    app = AppTest.from_file(str(HOME_PATH)).run(timeout=20)
+
+    app.button[0].click().run(timeout=20)
+
+    assert not app.exception
+    preview_columns = list(app.dataframe[0].value.columns)
+    expected_labels = [
+        "日期",
+        "商品ID",
+        "商品名称",
+        "商品类别",
+        "售价",
+        "成本",
+        "曝光次数",
+        "访客数",
+        "商品点击",
+        "加购次数",
+        "订单数",
+        "销量",
+        "销售额",
+        "广告花费",
+        "退款数量",
+        "库存数量",
+        "商品评分",
+    ]
+    assert preview_columns[: len(expected_labels)] == expected_labels
+
+    source_columns = list(app.session_state["sales_data"].columns)
+    assert source_columns[: len(expected_labels)] == [
+        "date",
+        "product_id",
+        "product_name",
+        "category",
+        "price",
+        "cost",
+        "impressions",
+        "visitors",
+        "product_clicks",
+        "add_to_cart",
+        "orders",
+        "units_sold",
+        "sales_amount",
+        "ad_spend",
+        "refund_units",
+        "inventory",
+        "rating",
+    ]
+
+
+def test_homepage_uses_operator_friendly_upload_guidance():
+    app = AppTest.from_file(str(HOME_PATH)).run(timeout=20)
+
+    assert not app.exception
+    assert any(expander.label == "数据上传说明" for expander in app.expander)
+
+    copy = "\n".join(element.value for element in app.markdown)
+    assert "上传经营数据前，请确认文件包含以下基础信息和经营指标" in copy
+    assert "基础信息" in copy
+    assert "日期" in copy
+    assert "商品" in copy
+    assert "类目" in copy
+    assert "经营指标" in copy
+    assert "销售额" in copy
+    assert "订单量" in copy
+    assert "访客数" in copy
+    assert "库存" in copy
+    assert "数据事实由确定性系统提供" in copy
+    assert "AI 负责解释和行动建议" in copy
+
+
 def test_dashboard_guides_user_to_load_data_when_session_is_empty():
     app = AppTest.from_file(str(DASHBOARD_PATH)).run(timeout=20)
 

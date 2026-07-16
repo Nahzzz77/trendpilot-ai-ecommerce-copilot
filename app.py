@@ -9,6 +9,25 @@ from src.data_validator import REQUIRED_COLUMNS, validate_required_columns
 
 DATA_SESSION_KEY = "sales_data"
 SOURCE_SESSION_KEY = "sales_data_source"
+PREVIEW_COLUMN_LABELS = {
+    "date": "日期",
+    "product_id": "商品ID",
+    "product_name": "商品名称",
+    "category": "商品类别",
+    "price": "售价",
+    "cost": "成本",
+    "impressions": "曝光次数",
+    "visitors": "访客数",
+    "product_clicks": "商品点击",
+    "add_to_cart": "加购次数",
+    "orders": "订单数",
+    "units_sold": "销量",
+    "sales_amount": "销售额",
+    "ad_spend": "广告花费",
+    "refund_units": "退款数量",
+    "inventory": "库存数量",
+    "rating": "商品评分",
+}
 
 
 def store_valid_data(dataframe: pd.DataFrame, source_name: str) -> bool:
@@ -33,7 +52,8 @@ def render_dataset(dataframe: pd.DataFrame) -> None:
     end_date.metric("结束日期", summary["end_date"])
 
     st.subheader("数据预览")
-    st.dataframe(dataframe.head(20), width="stretch", hide_index=True)
+    preview = dataframe.head(20).rename(columns=PREVIEW_COLUMN_LABELS)
+    st.dataframe(preview, width="stretch", hide_index=True)
     st.caption("当前展示前 20 行；完整数据已保存在本次浏览器会话中。")
 
 
@@ -42,12 +62,14 @@ st.set_page_config(page_title="TrendPilot", page_icon="📈", layout="wide")
 st.title("TrendPilot")
 st.subheader("面向潮流服饰品牌的 AI 电商运营决策助手")
 st.write(
-    "加载经营数据后，可进入经营总览查看销售、转化、毛利和库存等确定性指标。"
-    "当前版本不包含异常检测、原因解释或自动建议。"
+    "加载经营数据后，可查看销售、转化、毛利和库存等经营指标，"
+    "并进一步进入规则诊断和 AI 增强分析。"
+    "数据事实由确定性系统提供，AI 负责解释和行动建议，"
+    "最终决策仍由运营人员完成。"
 )
 
 st.markdown("### 使用流程")
-st.markdown("**加载数据 → 校验字段 → 保存会话 → 查看经营总览**")
+st.markdown("**加载数据 → 经营总览 → 规则诊断 → AI 增强分析**")
 
 sample_column, upload_column = st.columns(2)
 
@@ -73,7 +95,14 @@ with upload_column:
         except DataLoadError as exc:
             st.error(str(exc))
 
-with st.expander("查看 CSV 必填字段"):
+with st.expander("数据上传说明"):
+    st.write("上传经营数据前，请确认文件包含以下基础信息和经营指标：")
+    basic_column, metric_column = st.columns(2)
+    with basic_column:
+        st.markdown("**基础信息**\n- 日期\n- 商品\n- 类目")
+    with metric_column:
+        st.markdown("**经营指标**\n- 销售额\n- 订单量\n- 访客数\n- 库存")
+    st.caption("完整 CSV 字段名称")
     st.code("\n".join(REQUIRED_COLUMNS), language="text")
 
 if DATA_SESSION_KEY in st.session_state:
@@ -83,4 +112,4 @@ if DATA_SESSION_KEY in st.session_state:
     render_dataset(st.session_state[DATA_SESSION_KEY])
     st.page_link("pages/1_经营总览.py", label="进入经营总览", icon="📊")
 else:
-    st.info("请加载示例数据，或上传包含全部必填字段的 CSV 文件。")
+    st.info("请加载示例数据，或上传符合“数据上传说明”的 CSV 文件。")
